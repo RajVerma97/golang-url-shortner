@@ -1,13 +1,13 @@
 package controllers
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
-	"math/rand"
+	"fmt"
+	"github.com/RajVerma97/golang-url-shortner/models"
 	"net/http"
 	"strings"
-	"time"
-
-	"github.com/RajVerma97/golang-url-shortner/models"
 )
 
 func HandleRoot(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +31,7 @@ func HandleShorten(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "url is required", http.StatusBadRequest)
 		return
 	}
-	shortenUrl := generateShortCode()
+	shortenUrl := generateShortCode(originalUrl)
 
 	err = models.CreateUrl(originalUrl, shortenUrl)
 	if err != nil {
@@ -47,20 +47,13 @@ func HandleShorten(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
 }
-func generateShortCode() string {
-	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	const length = 6
-	var result string
+func generateShortCode(originalUrl string) string {
 
-	random := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for i := 1; i <= length; i++ {
-		randomIndex := random.Intn(len(chars))
-		char := string(chars[randomIndex])
-		result += char
-	}
-
-	return result
-
+	hasher := md5.New()
+	hasher.Write([]byte(originalUrl)) //Converts the original url to a slice of byte
+	data := hasher.Sum(nil)
+	hash := hex.EncodeToString(data)
+	return hash[:8]
 }
 
 func HandleRedirect(w http.ResponseWriter, r *http.Request) {
