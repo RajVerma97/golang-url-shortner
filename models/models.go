@@ -1,51 +1,71 @@
 package models
 
 import (
+	"context"
 	"errors"
+	"github.com/RajVerma97/golang-url-shortner/config"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"time"
 )
 
 type Url struct {
-	ID          int       `json:"id"`
-	OriginalUrl string    `json:"originalUrl"`
-	ShortenUrl  string    `json:"shortenUrl"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID          primitive.ObjectID `json:"id" bson:"_id,omitempty"` //Maps to MongoDB's _id
+	OriginalUrl string             `json:"originalUrl" bson:"originalUrl"`
+	ShortenUrl  string             `json:"shortenUrl" bson:"shortenUrl"`
+	CreatedAt   time.Time          `json:"createdAt" bson:"createdAt"`
+	UpdatedAt   time.Time          `json:"updatedAt" bson:"updatedAt"`
 }
 
-var urls = make(map[string]Url)
-
-func CreateUrl(originalUrl, shortenUrl string) error {
+func SaveUrlToDb(originalUrl, shortenUrl string) error {
 	if originalUrl == "" {
 		return errors.New("original url cannot be empty")
 	}
 	if shortenUrl == "" {
 		return errors.New("shorten url cannot be empty")
 	}
+	_, err := GetURlFromDb(shortenUrl)
 
-	if _, exists := urls[shortenUrl]; exists {
-
-		return errors.New("shorten url already exist")
+	if err == nil {
+		return errors.New("url with the shorten url already exists")
 	}
+
 	newUrl := Url{
-		ID:          1,
 		OriginalUrl: originalUrl,
 		ShortenUrl:  shortenUrl,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
-	urls[shortenUrl] = newUrl
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err = config.Collection.InsertOne(ctx, newUrl)
+	if err != nil {
+		return errors.New("unable to insert url in the db")
+	}
+
 	return nil
 }
 
+func GetURlFromDb(shortenUrl string) (Url, error) {
+
+	var url Url
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err := config.Collection.FindOne(ctx, bson.M{"shortenUrl": shortenUrl}).Decode(&url)
+	if err != nil {
+		return Url{}, errors.New("error finding the url in the db")
+	}
+	return url, nil
+}
 func GetOriginalUrl(shortenUrl string) (string, error) {
 	if shortenUrl == "" {
 		return "", errors.New("empty shorten url ")
 	}
+	url, err := GetURlFromDb(shortenUrl)
 
-	url, exists := urls[shortenUrl]
-	if !exists {
-		return "", errors.New("url not found")
+	if err != nil {
+		return "", errors.New("error finding the url in the db")
 	}
 	return url.OriginalUrl, nil
 }

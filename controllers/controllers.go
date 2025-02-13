@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"github.com/RajVerma97/golang-url-shortner/models"
 	"net/http"
 	"strings"
@@ -33,7 +32,7 @@ func HandleShorten(w http.ResponseWriter, r *http.Request) {
 	}
 	shortenUrl := generateShortCode(originalUrl)
 
-	err = models.CreateUrl(originalUrl, shortenUrl)
+	err = models.SaveUrlToDb(originalUrl, shortenUrl)
 	if err != nil {
 		http.Error(w, "unable to create url", http.StatusBadRequest)
 		return
